@@ -23,6 +23,8 @@ const sequelize = new Sequelize({
 
 async function initializeDatabase() {
   try {
+    require("../models/associations");
+
     await sequelize.authenticate();
     console.log(`✅ [DB] Connected to "${process.env.DB_NAME}"`);
 
