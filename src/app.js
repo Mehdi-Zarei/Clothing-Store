@@ -16,12 +16,14 @@ const { errorHandler } = require("./middlewares/errorHandler");
 const authRoutes = require("./modules/auth/auth.routes");
 const userRoutes = require("./modules/user/user.routes");
 const categoryRoutes = require("./modules/category/category.routes");
+const productRoutes = require("./modules/product/product.routes");
 app.use(cors(corsOptions));
 
 //* Import Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/category", categoryRoutes);
+app.use("/api/product", productRoutes);
 
 //* 404 Error Handler
 app.use((req, res) => {
