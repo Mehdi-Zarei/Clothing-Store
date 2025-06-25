@@ -11,6 +11,7 @@ const {
   getOne,
   remove,
   update,
+  removeImages,
 } = require("./product.controller");
 
 //* Uploader
@@ -27,6 +28,8 @@ router
   .route("/:id")
   .get(getOne)
   .delete(authGuard(["ADMIN"]), remove)
-  .patch(authGuard(["ADMIN"]), update);
+  .patch(authGuard(["ADMIN"]), upload.array("images", 10), update);
+
+router.delete("/:id/images", authGuard(["ADMIN"]), removeImages);
 
 module.exports = router;
