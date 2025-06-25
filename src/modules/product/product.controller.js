@@ -1,5 +1,4 @@
 const fs = require("fs");
-const path = require("path");
 
 const { createPagination } = require("../../helpers/pagination");
 
@@ -11,6 +10,8 @@ const {
 const Category = require("../../models/Category");
 const Product = require("../../models/Product");
 const { paginationQuerySchema } = require("../user/user.validator");
+const { productSchema } = require("./product.validators");
+const removeUploadedImages = require("../../helpers/removeUploadedImages");
 
 exports.create = async (req, res, next) => {
   try {
@@ -19,20 +20,50 @@ exports.create = async (req, res, next) => {
 
     if (specifications) specifications = JSON.parse(specifications);
 
-    const categoryIdExist = await Category.findOne({
-      where: { id: categoryId },
-    });
-
-    if (!categoryIdExist) {
-      return errorResponse(res, 404, "دسته بندی با این شناسه یافت نشد.");
-    }
-
+    const { error } = productSchema.validate(
+      {
+        name,
+        description,
+        price,
+        stock,
+        categoryId,
+        specifications,
+      },
+      { abortEarly: false }
+    );
     let images = [];
 
     if (req.files) {
       images = req.files.map(
         (images) => `public/images/products/${images.filename}`
       );
+    }
+
+    if (error) {
+      removeUploadedImages(images);
+
+      return res.status(400).json({
+        success: false,
+        message: "ورودی نامعتبر است",
+        error: error.details[0].message,
+      });
+    }
+
+    const categoryIdExist = await Category.findOne({
+      where: { id: categoryId },
+    });
+
+    if (!categoryIdExist) {
+      removeUploadedImages(images);
+
+      return errorResponse(res, 404, "دسته بندی با این شناسه یافت نشد.");
+    }
+
+    const duplicatedProduct = await Product.findOne({ where: { name } });
+    if (duplicatedProduct) {
+      removeUploadedImages(images);
+
+      return errorResponse(res, 409, "این محصول قبلا ثبت شده است.");
     }
 
     const newProduct = await Product.create({
@@ -52,6 +83,7 @@ exports.create = async (req, res, next) => {
       newProduct
     );
   } catch (error) {
+    removeUploadedImages(images);
     next(error);
   }
 };
@@ -104,12 +136,14 @@ exports.getOne = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    const remove = await Product.destroy({ where: { id } });
-
-    if (!remove) {
+    const product = await Product.findByPk(id);
+    if (!product) {
       return errorResponse(res, 404, "محصولی یافت نشد.");
     }
+
+    removeUploadedImages(product.images);
+
+    await Product.destroy({ where: { id } });
 
     return successResponse(res, 200, "محصول مورد نظر با موفقیت حذف گردید.");
   } catch (error) {
