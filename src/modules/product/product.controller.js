@@ -10,7 +10,11 @@ const {
 const Category = require("../../models/Category");
 const Product = require("../../models/Product");
 const { paginationQuerySchema } = require("../user/user.validator");
-const { productSchema } = require("./product.validators");
+const {
+  productSchema,
+  updateProductSchema,
+  IdParamSchema,
+} = require("./product.validators");
 const removeUploadedImages = require("../../helpers/removeUploadedImages");
 
 exports.create = async (req, res, next) => {
@@ -31,6 +35,7 @@ exports.create = async (req, res, next) => {
       },
       { abortEarly: false }
     );
+
     let images = [];
 
     if (req.files) {
@@ -121,6 +126,11 @@ exports.getOne = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    const { error } = IdParamSchema.validate(req.params);
+    if (error) {
+      return errorResponse(res, 409, error.details[0].message);
+    }
+
     const product = await Product.findByPk(id, { raw: true });
 
     if (!product) {
@@ -136,6 +146,12 @@ exports.getOne = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    const { error } = IdParamSchema.validate(req.params);
+    if (error) {
+      return errorResponse(res, 409, error.details[0].message);
+    }
+
     const product = await Product.findByPk(id);
     if (!product) {
       return errorResponse(res, 404, "محصولی یافت نشد.");
@@ -154,6 +170,7 @@ exports.remove = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const { id } = req.params;
+
     let { name, description, specifications, price, stock, categoryId } =
       req.body;
 
@@ -161,19 +178,70 @@ exports.update = async (req, res, next) => {
 
     const product = await Product.findByPk(id);
 
-    if (name) product.name = name;
-    if (description) product.description = description;
-    if (specifications) product.specifications = specifications;
-    if (price) product.price = price;
-    if (stock) product.stock = stock;
-    if (categoryId) product.categoryId = categoryId;
-
+    let newImages;
     if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(
+      newImages = req.files.map(
         (img) => `public/images/products/${img.filename}`
       );
 
+      //? The `if (!product)` condition is repeated twice intentionally to prevent images from being uploaded in case of an error. This ensures that uploaded files are removed immediately if the product is not found.
+
+      if (!product) {
+        removeUploadedImages(newImages);
+
+        return errorResponse(res, 404, "محصول یافت نشد");
+      }
+
       product.images = [...(product.images || []), ...newImages];
+    }
+
+    if (!product) {
+      removeUploadedImages(newImages);
+
+      return errorResponse(res, 404, "محصول یافت نشد");
+    }
+
+    if (name) product.name = name;
+
+    if (description) product.description = description;
+
+    if (specifications) product.specifications = specifications;
+
+    if (price) product.price = price;
+
+    if (stock) product.stock = stock;
+
+    if (categoryId) {
+      const categoryIdExist = await Category.findByPk(categoryId);
+      if (!categoryIdExist) {
+        return errorResponse(res, 404, "دسته بندی با این شناسه یافت نشد.");
+      }
+
+      product.categoryId = categoryId;
+    }
+
+    const { error: paramError } = IdParamSchema.validate(req.params);
+    if (paramError) {
+      removeUploadedImages(newImages);
+
+      return errorResponse(res, 409, paramError.details[0].message);
+    }
+
+    const { error: bodyError } = updateProductSchema.validate(
+      {
+        name,
+        description,
+        price,
+        stock,
+        categoryId,
+        specifications,
+      },
+      { abortEarly: false }
+    );
+    if (bodyError) {
+      removeUploadedImages(newImages);
+
+      return errorResponse(res, 400, { error: bodyError.details[0].message });
     }
 
     await product.save();
@@ -192,6 +260,11 @@ exports.removeImages = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { imagesToRemove } = req.body;
+
+    const { error } = IdParamSchema.validate(req.params);
+    if (error) {
+      return errorResponse(res, 409, error.details[0].message);
+    }
 
     const product = await Product.findByPk(id);
     if (!product) {
