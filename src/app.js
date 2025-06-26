@@ -18,6 +18,7 @@ const userRoutes = require("./modules/user/user.routes");
 const categoryRoutes = require("./modules/category/category.routes");
 const productRoutes = require("./modules/product/product.routes");
 const cartRoutes = require("./modules/cart/cart.routes");
+const checkoutRoutes = require("./modules/checkout/checkout.routes");
 app.use(cors(corsOptions));
 
 //* Import Routes
@@ -26,6 +27,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/checkout", checkoutRoutes);
 
 //* 404 Error Handler
 app.use((req, res) => {
