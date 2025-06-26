@@ -33,3 +33,13 @@ CartItems.belongsTo(Cart, {
   foreignKey: "cartId",
   as: "cart",
 });
+
+Product.hasMany(CartItems, {
+  foreignKey: "productId",
+  as: "cartItems",
+});
+
+CartItems.belongsTo(Product, {
+  foreignKey: "productId",
+  as: "product",
+});
