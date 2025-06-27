@@ -27,7 +27,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/cart", cartRoutes);
-app.use("/api/checkout", checkoutRoutes);
+app.use("/api/checkouts", checkoutRoutes);
 
 //* 404 Error Handler
 app.use((req, res) => {
