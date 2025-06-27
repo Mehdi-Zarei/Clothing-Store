@@ -5,6 +5,7 @@ const {
 const Cart = require("../../models/Cart");
 const CartItems = require("../../models/CartItem");
 const Product = require("../../models/Product");
+const { addToCartSchema } = require("./cart.validator");
 
 exports.get = async (req, res, next) => {
   try {
@@ -49,6 +50,16 @@ exports.addToCart = async (req, res, next) => {
     const { productId } = req.params;
     const { quantity } = req.body;
     const userId = req.user.id;
+
+    const dataToValidate = {
+      productId: req.params.productId,
+      quantity: req.body.quantity,
+    };
+
+    const { error } = addToCartSchema.validate(dataToValidate);
+    if (error) {
+      return errorResponse(res, 409, error.details[0].message);
+    }
 
     const mainProduct = await Product.findByPk(productId);
     if (!mainProduct || !mainProduct.stock) {
