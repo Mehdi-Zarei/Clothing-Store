@@ -1,3 +1,4 @@
+const { sequelize } = require("../../configs/db");
 const {
   errorResponse,
   successResponse,
@@ -6,7 +7,7 @@ const Cart = require("../../models/Cart");
 const CartItems = require("../../models/CartItem");
 const Order = require("../../models/Order");
 const OrderItem = require("../../models/OrderItem");
-const { createPayment } = require("../../service/zarinpal");
+const { createPayment, verifyPayment } = require("../../service/zarinpal");
 
 exports.createCheckout = async (req, res, next) => {
   try {
@@ -75,8 +76,44 @@ exports.createCheckout = async (req, res, next) => {
 };
 
 exports.verifyCheckout = async (req, res, next) => {
+  const t = await sequelize.transaction();
   try {
+    const { Status, Authority } = req.query;
+    const user = req.user;
+
+    const hasOrderAlreadyCreated = await Order.findOne({
+      where: { authority: Authority },
+      transaction: t,
+    });
+
+    if (!hasOrderAlreadyCreated) {
+      throw new Error("سفارش یافت نشد.");
+    }
+
+    if (hasOrderAlreadyCreated.status !== "Pending") {
+      throw new Error("این پرداخت قبلا تائید شده است.");
+    }
+
+    const verifyPaymentStatus = await verifyPayment({
+      amountInRial: hasOrderAlreadyCreated.totalPrice,
+      authority: Authority,
+    });
+
+    if (![100, 101].includes(verifyPaymentStatus.code) || Status !== "OK") {
+      throw new Error("پرداخت تائید نشد!");
+    }
+
+    hasOrderAlreadyCreated.status = "paid";
+    await hasOrderAlreadyCreated.save({ transaction: t });
+
+    const userCart = await Cart.findOne({ where: { userId: user.id } });
+
+    await CartItems.destroy({ where: { cartId: userCart.id }, transaction: t });
+
+    await t.commit();
+    return successResponse(res, 200, "پرداخت موفقیت آمیز بود.");
   } catch (error) {
+    await t.rollback();
     next(error);
   }
 };
